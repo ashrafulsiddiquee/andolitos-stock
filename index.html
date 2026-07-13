@@ -38,13 +38,31 @@
 
   /* ---------- Header ---------- */
   header{
-    padding:48px 28px 30px 28px;
     position:relative;
     border-bottom:1px solid var(--line);
-    background:
-      linear-gradient(180deg, rgba(32,28,24,0.55) 0%, rgba(32,28,24,0.88) 75%, var(--bg) 100%),
-      url('andolitos-hero.png') center 30%/cover no-repeat;
-    background-color: var(--bg);
+  }
+  .hero-wrap{
+    position:relative;
+    width:100%;
+    line-height:0;
+  }
+  .hero-img{
+    width:100%;
+    height:auto;
+    display:block;
+  }
+  .hero-overlay{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg, rgba(32,28,24,0.35) 0%, rgba(32,28,24,0.82) 68%, var(--bg) 100%);
+  }
+  .hero-text{
+    position:absolute;
+    inset:0;
+    padding:28px 28px 20px 28px;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
   }
   .eyebrow{
     font-size:11px;
@@ -371,10 +389,16 @@
 <div id="loading" class="loading-screen">Loading inventory…</div>
 
 <header>
-  <p class="eyebrow">Kitchen Inventory</p>
-  <h1 class="display">ANDOLITOS <span>STOCK</span></h1>
-  <p class="subhead">Live inventory counts and reorder thresholds. Saved in this browser only — it won't sync to other devices.</p>
-  <div class="sync-pill"><span id="syncDot" class="sync-dot"></span><span id="syncLabel">saved</span></div>
+  <div class="hero-wrap">
+    <img src="andolitos-hero.png" class="hero-img" alt="Andolitos Mexican Grille spread">
+    <div class="hero-overlay"></div>
+    <div class="hero-text">
+      <p class="eyebrow">Kitchen Inventory</p>
+      <h1 class="display">ANDOLITOS <span>STOCK</span></h1>
+      <p class="subhead">Live inventory counts and reorder thresholds. Saved in this browser only — it won't sync to other devices.</p>
+      <div class="sync-pill"><span id="syncDot" class="sync-dot"></span><span id="syncLabel">saved</span></div>
+    </div>
+  </div>
 </header>
 
 <div class="toolbar">
