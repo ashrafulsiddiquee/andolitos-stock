@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Andolitos Stock — Inventory Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#201c18;
+    --panel:#2b2620;
+    --panel-raised:#332c24;
+    --ink:#f3ecdd;
+    --ink-dim:#c9bfa9;
+    --masa:#e3a72e;
+    --masa-dim:#8a6a22;
+    --chili:#c0392b;
+    --lime:#8ca84b;
+    --line:#4a4038;
+    --hole:#201c18;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    padding:0 0 60px 0;
+    min-height:100vh;
+  }
+  .display{
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.03em;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    padding:48px 28px 30px 28px;
+    position:relative;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(32,28,24,0.55) 0%, rgba(32,28,24,0.88) 75%, var(--bg) 100%),
+      url('andolitos-hero.png') center 30%/cover no-repeat;
+    background-color: var(--bg);
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:0.25em;
+    text-transform:uppercase;
+    color:var(--masa);
+    margin:0 0 6px 0;
+  }
+  h1{
+    margin:0;
+    font-size:52px;
+    line-height:0.9;
+    color:var(--ink);
+  }
+  h1 span{color:var(--masa);}
+  .subhead{
+    color:var(--ink-dim);
+    font-size:13px;
+    margin-top:10px;
+    max-width:560px;
+  }
+  .sync-pill{
+    position:absolute;
+    top:32px;
+    right:28px;
+    font-size:11px;
+    color:var(--ink-dim);
+    text-align:right;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .sync-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--lime);
+    box-shadow:0 0 0 3px rgba(140,168,75,0.15);
+  }
+  .sync-dot.saving{background:var(--masa); animation:pulse 0.9s infinite;}
+  @keyframes pulse{50%{opacity:0.4;}}
+
+  /* ---------- Toolbar ---------- */
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+    padding:18px 28px;
+    border-bottom:1px solid var(--line);
+    position:sticky;
+    top:0;
+    background:var(--bg);
+    z-index:20;
+  }
+  .search{
+    flex:1;
+    min-width:180px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:10px 14px;
+    font-family:inherit;
+    font-size:13px;
+    border-radius:3px;
+  }
+  .search::placeholder{color:var(--ink-dim);}
+  .search:focus{outline:none; border-color:var(--masa);}
+  button{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    border-radius:3px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--ink);
+    padding:10px 16px;
+    cursor:pointer;
+    transition:transform 0.08s ease, border-color 0.15s ease;
+  }
+  button:hover{border-color:var(--masa);}
+  button:active{transform:translateY(1px);}
+  button.primary{
+    background:var(--masa);
+    color:#201c18;
+    border-color:var(--masa);
+  }
+  button.primary:hover{background:#f0b845;}
+  button.ghost{background:transparent;}
+  button.danger:hover{border-color:var(--chili); color:var(--chili);}
+  button:disabled{opacity:0.5; cursor:not-allowed;}
+
+  .filter-chip{
+    display:flex; gap:6px; align-items:center;
+    font-size:11px; color:var(--ink-dim);
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:3px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .filter-chip.active{border-color:var(--chili); color:var(--chili);}
+  .filter-chip input{accent-color:var(--chili);}
+
+  /* ---------- Category nav ---------- */
+  nav.cats{
+    display:flex;
+    gap:6px;
+    padding:14px 28px 0 28px;
+    flex-wrap:wrap;
+  }
+  nav.cats button{
+    background:var(--panel);
+    font-size:11px;
+  }
+  nav.cats button.active{
+    background:var(--panel-raised);
+    border-color:var(--masa);
+    color:var(--masa);
+  }
+
+  main{padding:24px 28px 20px 28px; max-width:980px; margin:0 auto;}
+
+  /* ---------- Ticket-edge section ---------- */
+  .category{
+    margin-bottom:34px;
+  }
+  .ticket-edge{
+    height:12px;
+    background:
+      radial-gradient(circle at 10px 0, transparent 6px, var(--panel) 6.5px) repeat-x;
+    background-size:20px 12px;
+    margin-bottom:-1px;
+  }
+  .cat-head{
+    background:var(--panel);
+    padding:14px 20px 12px 20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
+  }
+  .cat-head h2{
+    margin:0;
+    font-size:26px;
+    font-family:'Bebas Neue', sans-serif;
+    letter-spacing:0.04em;
+  }
+  .cat-count{font-size:11px; color:var(--ink-dim);}
+  .cat-body{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-top:none;
+  }
+
+  table{width:100%; border-collapse:collapse;}
+  thead th{
+    text-align:left;
+    font-size:10px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    padding:8px 20px;
+    border-bottom:1px solid var(--line);
+  }
+  th.num, td.num{text-align:center; width:120px;}
+  th.unit-col, td.unit-col{text-align:center; width:130px;}
+  th.actions, td.actions{width:44px; text-align:center;}
+  tbody tr{border-bottom:1px solid rgba(74,64,56,0.5);}
+  tbody tr:last-child{border-bottom:none;}
+  tbody tr.low{background:rgba(192,57,43,0.10);}
+  td{padding:9px 20px; font-size:13px;}
+  td.name{font-weight:500;}
+  .stamp{
+    display:inline-block;
+    font-size:9px;
+    letter-spacing:0.08em;
+    color:var(--chili);
+    border:1px solid var(--chili);
+    border-radius:2px;
+    padding:1px 5px;
+    margin-left:8px;
+    transform:rotate(-3deg);
+    vertical-align:middle;
+  }
+  input.qty{
+    width:64px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    text-align:center;
+    padding:6px 4px;
+    border-radius:3px;
+  }
+  input.qty:focus{outline:none; border-color:var(--masa);}
+  tr.low input.qty{border-color:var(--chili);}
+
+  select.unit-select{
+    width:100%;
+    max-width:120px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:12px;
+    padding:6px 4px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  select.unit-select:focus{outline:none; border-color:var(--masa);}
+  .del-btn{
+    background:none; border:none; color:var(--ink-dim);
+    cursor:pointer; font-size:15px; padding:2px 6px;
+  }
+  .del-btn:hover{color:var(--chili);}
+
+  .add-row{
+    display:flex; gap:8px; padding:12px 20px;
+    border-top:1px solid var(--line);
+  }
+  .add-row input{
+    flex:1;
+    background:var(--bg);
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:inherit;
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:3px;
+  }
+  .add-row input:focus{outline:none; border-color:var(--masa);}
+
+  .empty{
+    padding:24px 20px; color:var(--ink-dim); font-size:12px; text-align:center;
+  }
+
+  footer{
+    padding:20px 28px 40px 28px;
+    color:var(--ink-dim);
+    font-size:11px;
+    text-align:center;
+    max-width:980px;
+    margin:0 auto;
+  }
+  footer button{margin-top:10px;}
+
+  .photo-strip{
+    max-width:980px;
+    margin:0 auto 28px auto;
+    padding:0 28px;
+  }
+  .photo-strip img{
+    width:100%;
+    height:180px;
+    object-fit:cover;
+    object-position:center 20%;
+    border-radius:6px;
+    border:1px solid var(--line);
+    display:block;
+    filter:saturate(0.95);
+  }
+
+  .loading-screen{
+    position:fixed; inset:0; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-dim); font-size:13px; z-index:100;
+  }
+
+  /* ---------- Custom modal & toast (native confirm/alert are blocked in sandboxed artifacts) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index:200; padding:20px;
+  }
+  .modal-box{
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:24px;
+    max-width:380px;
+    width:100%;
+  }
+  .modal-box p{margin:0 0 18px 0; font-size:13px; line-height:1.5; color:var(--ink);}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px;}
+  button.primary-danger{background:var(--chili); color:#fff; border-color:var(--chili);}
+  button.primary-danger:hover{background:#d8483a;}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:12px 18px;
+    border-radius:5px;
+    font-size:12px;
+    max-width:90vw;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s ease, transform 0.2s ease;
+    z-index:210;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---------- Print ---------- */
+  @media print{
+    body{background:#fff; color:#111; padding:0;}
+    header, .toolbar, nav.cats, footer, .add-row, .del-btn, .sync-pill, .modal-overlay, .toast, .photo-strip{display:none !important;}
+    .category{page-break-inside:avoid; margin-bottom:22px;}
+    .cat-head, .cat-body{background:#fff; border-color:#ccc;}
+    .cat-head h2{color:#111;}
+    .ticket-edge{display:none;}
+    tr.low{background:#fce9e7 !important;}
+    input.qty{border:none; background:none; color:#111; -webkit-appearance:none;}
+    select.unit-select{border:none; background:none; color:#111; -webkit-appearance:none; appearance:none;}
+    .stamp{color:#b23127; border-color:#b23127;}
+    main{padding:0 10px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading-screen">Loading inventory…</div>
+
+<header>
+  <p class="eyebrow">Kitchen Inventory</p>
+  <h1 class="display">ANDOLITOS <span>STOCK</span></h1>
+  <p class="subhead">Live inventory counts and reorder thresholds. Saved in this browser only — it won't sync to other devices.</p>
+  <div class="sync-pill"><span id="syncDot" class="sync-dot"></span><span id="syncLabel">saved</span></div>
+</header>
+
+<div class="toolbar">
+  <input class="search" id="search" type="text" placeholder="Search items…">
+  <label class="filter-chip" id="lowFilterChip">
+    <input type="checkbox" id="lowFilter"> Low stock only
+  </label>
+  <button class="ghost" id="printBtn">🖶 Print</button>
+  <button class="ghost" id="pdfBtn">⇩ Export PDF</button>
+  <button class="ghost" id="zeroBtn">Zero all counts</button>
+  <button class="ghost" id="restoreBtn">Restore missing items</button>
+  <button class="danger ghost" id="resetBtn">Reset list</button>
+</div>
+
+<nav class="cats" id="catNav"></nav>
+
+<main id="main"></main>
+
+<div class="photo-strip">
+  <img src="andolitos-poster.jpeg" alt="Andolitos Mexican Grille spread of burritos and tacos">
+</div>
+
+<footer>
+  Andolitos Stock — saved locally in this browser. Clearing your browser data or switching devices/browsers will not carry counts over.
+  <br>Created By: Md Ashraful Hakim Khan Siddiquee
+</footer>
+
+<div id="confirmOverlay" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <p id="confirmMsg"></p>
+    <div class="modal-actions">
+      <button class="ghost" id="confirmCancel">Cancel</button>
+      <button class="danger primary-danger" id="confirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+
+const STORAGE_KEY = 'cocina-stock-data-v1';
+const UNIT_OPTIONS = ['Carton Box', 'Packets', 'Piece', 'Bottles'];
+
+const DEFAULT_DATA = {
+  categories: [
+    {
+      id: 'core', name: 'Core Ingredients',
+      items: [
+        ['Beef',6,2],['Vegan Meat',4,2],['Rice',10,3],['Shrimp',5,2],['Chorizo',6,2],
+        ['Avocado Pulp (Guacamole)',8,3],['White Onion',10,3],['Red Onion',8,3],
+        ['Coriander',6,2],['Tomato',10,3],['Jalapeño',6,2],['Lime',12,4],['Garlic',6,2],
+        ['Carrot',6,2],['Habanero',4,2],['Mango',5,2],['Pineapple',5,2],
+        ['Green Salsa Verde',6,2],['Tomaten Passierte',6,2],['Lime Juice',4,2],
+        ['Vinegar',4,1],['Salat Mayonnaise',4,1],['Beef Powder',3,1],['Vegan Powder',3,1],
+        ['Salt',5,2],['Pepper',5,2],['Oregano Powder',3,1],['Cumin',3,1],
+        ['Tortilla Flour (Burrito)',10,3],['Vegan Cheese',4,2],['Mozzarella Cheese',6,2]
+      ].map(r=>({name:r[0], qty:r[1], reorder:r[2]}))
+    },
+    {
+      id: 'mexican', name: 'Mexican Staples',
+      items: [
+        ['Bean',8,3],['Tortilla Corn (Tacos)',12,4],['Tortilla (Chips)',10,3],
+        ['Chilpotle Mix',4,2],['Guajillo Chili',4,2],['Chili Arbol',4,2],['Achiote Paste',3,1]
+      ].map(r=>({name:r[0], qty:r[1], reorder:r[2]}))
+    },
+    {
+      id: 'accessories', name: 'Accessories',
+      items: [
+        ['Kitchen Towel Tissue',6,2],['Disposable Napkins',10,3],['Cleaning Cloth',6,2],
+        ['Gloves (S)',4,1],['Gloves (M)',4,1],['Gloves (L)',4,1],['Gloves (XL)',4,1],
+        ['Pepper Plate',10,3],['Chips Plate',10,3],['Guacamole Bowl',10,3],
+        ['Birria Cup',10,3],['Salsa Cup',10,3],['Wooden Fork',20,5],['Wooden Spoon',20,5]
+      ].map(r=>({name:r[0], qty:r[1], reorder:r[2]}))
+    },
+    {
+      id: 'cleaning', name: 'Cleaning',
+      items: [
+        ['Trash Bag / Rubbish Bag / Garbage Bag',6,2],['Fettlöser Spray',3,1],
+        ['Dishwashing Liquid',4,1],['Kitchen Cleaning Sponges (Yellow)',6,2],
+        ['Stainless Steel Scourer',4,1]
+      ].map(r=>({name:r[0], qty:r[1], reorder:r[2]}))
+    }
+  ]
+};
+
+let data = null;
+let activeCat = null;
+let searchTerm = '';
+let lowOnly = false;
+let saveTimer = null;
+let idCounter = 1;
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+
+function showConfirm(message, onConfirm){
+  const overlay = document.getElementById('confirmOverlay');
+  document.getElementById('confirmMsg').textContent = message;
+  overlay.style.display = 'flex';
+  const okBtn = document.getElementById('confirmOk');
+  const cancelBtn = document.getElementById('confirmCancel');
+  function cleanup(){
+    overlay.style.display = 'none';
+    okBtn.removeEventListener('click', onOk);
+    cancelBtn.removeEventListener('click', onCancel);
+  }
+  function onOk(){ cleanup(); onConfirm(); }
+  function onCancel(){ cleanup(); }
+  okBtn.addEventListener('click', onOk);
+  cancelBtn.addEventListener('click', onCancel);
+}
+
+function assignIds(d){
+  d.categories.forEach(cat=>{
+    cat.items.forEach(it=>{
+      if(!it.id) it.id = 'i'+(idCounter++);
+      if(!it.unit) it.unit = 'Piece';
+    });
+  });
+  return d;
+}
+
+async function loadData(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      data = JSON.parse(raw);
+    } else {
+      data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    }
+  }catch(e){
+    data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+  assignIds(data);
+  activeCat = data.categories[0].id;
+  document.getElementById('loading').style.display = 'none';
+  render();
+}
+
+function queueSave(){
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  dot.classList.add('saving');
+  label.textContent = 'saving…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      dot.classList.remove('saving');
+      label.textContent = 'saved';
+    }catch(e){
+      label.textContent = 'save failed';
+      console.error(e);
+    }
+  }, 400);
+}
+
+function renderNav(){
+  const nav = document.getElementById('catNav');
+  nav.innerHTML = '';
+  data.categories.forEach(cat=>{
+    const b = document.createElement('button');
+    b.textContent = cat.name + ' (' + cat.items.length + ')';
+    if(cat.id === activeCat) b.classList.add('active');
+    b.onclick = ()=>{ activeCat = cat.id; render(); };
+    nav.appendChild(b);
+  });
+}
+
+function matchesFilter(item){
+  if(lowOnly && item.qty > item.reorder) return false;
+  if(searchTerm && !item.name.toLowerCase().includes(searchTerm)) return false;
+  return true;
+}
+
+function render(){
+  renderNav();
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+
+  // when searching, show all categories that have matches; otherwise just active
+  const catsToShow = (searchTerm || lowOnly)
+    ? data.categories
+    : data.categories.filter(c=>c.id===activeCat);
+
+  catsToShow.forEach(cat=>{
+    const visibleItems = cat.items.filter(matchesFilter);
+    if((searchTerm || lowOnly) && visibleItems.length === 0) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'category';
+
+    const edge = document.createElement('div');
+    edge.className = 'ticket-edge';
+    wrap.appendChild(edge);
+
+    const head = document.createElement('div');
+    head.className = 'cat-head';
+    head.innerHTML = `<h2>${cat.name}</h2><span class="cat-count">${cat.items.length} items</span>`;
+    wrap.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'cat-body';
+
+    if(visibleItems.length === 0 && cat.items.length === 0){
+      body.innerHTML = '<div class="empty">No items yet — add one below.</div>';
+    } else if(visibleItems.length === 0){
+      body.innerHTML = '<div class="empty">No matches in this category.</div>';
+    } else {
+      const table = document.createElement('table');
+      table.innerHTML = `<thead><tr>
+        <th>Item</th><th class="unit-col">Unit</th><th class="num">Qty Available</th><th class="num">Reorder Qty</th><th class="actions"></th>
+      </tr></thead>`;
+      const tbody = document.createElement('tbody');
+      visibleItems.forEach(item=>{
+        const tr = document.createElement('tr');
+        const low = item.qty <= item.reorder;
+        if(low) tr.classList.add('low');
+        const unitOptions = UNIT_OPTIONS.map(u=>`<option value="${u}" ${item.unit===u?'selected':''}>${u}</option>`).join('');
+        tr.innerHTML = `
+          <td class="name">${item.name}${low ? '<span class="stamp">LOW</span>' : ''}</td>
+          <td class="unit-col"><select class="unit-select" data-id="${item.id}">${unitOptions}</select></td>
+          <td class="num"><input type="number" min="0" class="qty" data-id="${item.id}" data-field="qty" value="${item.qty}"></td>
+          <td class="num"><input type="number" min="0" class="qty" data-id="${item.id}" data-field="reorder" value="${item.reorder}"></td>
+          <td class="actions"><button class="del-btn" data-del="${item.id}" title="Remove item">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      body.appendChild(table);
+    }
+
+    // add-item row only makes sense when not filtering
+    if(!searchTerm && !lowOnly){
+      const addRow = document.createElement('div');
+      addRow.className = 'add-row';
+      addRow.innerHTML = `<input type="text" placeholder="Add item to ${cat.name}…" data-addcat="${cat.id}">
+        <button data-addbtn="${cat.id}">Add</button>`;
+      body.appendChild(addRow);
+    }
+
+    wrap.appendChild(body);
+    main.appendChild(wrap);
+  });
+
+  if(catsToShow.every(c => c.items.filter(matchesFilter).length===0) && (searchTerm||lowOnly)){
+    main.innerHTML = '<div class="empty" style="padding:60px 0;">Nothing matches your search or filter.</div>';
+  }
+
+  attachHandlers();
+}
+
+function attachHandlers(){
+  document.querySelectorAll('input.qty').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      let val = parseInt(e.target.value, 10);
+      if(isNaN(val) || val < 0) val = 0;
+      for(const cat of data.categories){
+        const item = cat.items.find(i=>i.id===id);
+        if(item){ item[field] = val; break; }
+      }
+      queueSave();
+      render();
+    });
+  });
+
+  document.querySelectorAll('select.unit-select').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const id = e.target.dataset.id;
+      for(const cat of data.categories){
+        const item = cat.items.find(i=>i.id===id);
+        if(item){ item.unit = e.target.value; break; }
+      }
+      queueSave();
+    });
+  });
+
+  document.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const id = e.target.dataset.del;
+      for(const cat of data.categories){
+        const idx = cat.items.findIndex(i=>i.id===id);
+        if(idx>-1){ cat.items.splice(idx,1); break; }
+      }
+      queueSave();
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-addbtn]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const catId = btn.dataset.addbtn;
+      const input = document.querySelector(`[data-addcat="${catId}"]`);
+      const name = input.value.trim();
+      if(!name) return;
+      const cat = data.categories.find(c=>c.id===catId);
+      cat.items.push({id:'i'+(idCounter++), name, qty:0, reorder:0, unit:'Piece'});
+      input.value='';
+      queueSave();
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-addcat]').forEach(inp=>{
+    inp.addEventListener('keydown', e=>{
+      if(e.key === 'Enter'){
+        document.querySelector(`[data-addbtn="${inp.dataset.addcat}"]`).click();
+      }
+    });
+  });
+}
+
+document.getElementById('search').addEventListener('input', e=>{
+  searchTerm = e.target.value.trim().toLowerCase();
+  render();
+});
+document.getElementById('lowFilter').addEventListener('change', e=>{
+  lowOnly = e.target.checked;
+  document.getElementById('lowFilterChip').classList.toggle('active', lowOnly);
+  render();
+});
+
+document.getElementById('printBtn').addEventListener('click', ()=>window.print());
+
+document.getElementById('zeroBtn').addEventListener('click', ()=>{
+  showConfirm('Set Qty Available and Reorder Qty to 0 for every item? Item names stay, only the numbers reset.', ()=>{
+    data.categories.forEach(cat=>{
+      cat.items.forEach(item=>{
+        item.qty = 0;
+        item.reorder = 0;
+      });
+    });
+    queueSave();
+    render();
+    showToast('All quantities set to 0.');
+  });
+});
+
+document.getElementById('restoreBtn').addEventListener('click', ()=>{
+  const defaults = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  let restored = [];
+  defaults.categories.forEach(defCat=>{
+    let cat = data.categories.find(c=>c.id===defCat.id);
+    if(!cat){
+      cat = {id:defCat.id, name:defCat.name, items:[]};
+      data.categories.push(cat);
+    }
+    defCat.items.forEach(defItem=>{
+      const exists = cat.items.some(i=>i.name.trim().toLowerCase() === defItem.name.trim().toLowerCase());
+      if(!exists){
+        cat.items.push({id:'i'+(idCounter++), name:defItem.name, qty:defItem.qty, reorder:defItem.reorder});
+        restored.push(defItem.name);
+      }
+    });
+  });
+  if(restored.length === 0){
+    showToast('Nothing missing — every original item is already in the list.');
+  } else {
+    queueSave();
+    render();
+    showToast('Restored ' + restored.length + ' item(s): ' + restored.join(', '));
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  showConfirm('Reset the list back to the original inventory? This clears all counts and custom items in this browser.', ()=>{
+    data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    assignIds(data);
+    activeCat = data.categories[0].id;
+    queueSave();
+    render();
+    showToast('List reset to the original inventory.');
+  });
+});
+
+document.getElementById('pdfBtn').addEventListener('click', ()=>{
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'pt', format:'a4'});
+    const dateStr = new Date().toLocaleDateString();
+    let first = true;
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(18);
+    doc.text('Andolitos Stock — Inventory', 40, 40);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','normal');
+    doc.text('Exported ' + dateStr, 40, 58);
+
+    let startY = 78;
+    data.categories.forEach(cat=>{
+      if(cat.items.length === 0) return;
+      if(!first){
+        startY = doc.lastAutoTable.finalY + 26;
+      }
+      if(startY > 700){ doc.addPage(); startY = 40; }
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(13);
+      doc.text(cat.name, 40, startY);
+      doc.autoTable({
+        startY: startY + 8,
+        margin:{left:40, right:40},
+        head: [['Item', 'Unit', 'Qty Available', 'Reorder Qty', 'Status']],
+        body: cat.items.map(it=>[
+          it.name, it.unit || 'Piece', String(it.qty), String(it.reorder), it.qty<=it.reorder ? 'LOW STOCK' : 'OK'
+        ]),
+        styles:{ font:'helvetica', fontSize:9, cellPadding:5 },
+        headStyles:{ fillColor:[43,38,32], textColor:255 },
+        didParseCell: (hookData)=>{
+          if(hookData.section==='body' && hookData.column.index===4){
+            if(hookData.cell.raw === 'LOW STOCK'){
+              hookData.cell.styles.textColor = [192,57,43];
+              hookData.cell.styles.fontStyle = 'bold';
+            }
+          }
+        }
+      });
+      first = false;
+    });
+
+    doc.save('andolitos-stock-inventory-' + new Date().toISOString().slice(0,10) + '.pdf');
+  }catch(err){
+    showToast('PDF export failed to load. Please try again in a moment.');
+    console.error(err);
+  }
+});
+
+loadData();
+</script>
+</body>
+</html>
